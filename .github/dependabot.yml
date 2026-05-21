@@ -1,0 +1,61 @@
+version: 2
+updates:
+  - package-ecosystem: 'docker'
+    cooldown:
+      default-days: 21
+    directory: '/'
+    groups:
+      version-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'github-actions'
+    cooldown:
+      default-days: 21
+    directory: '/'
+    groups:
+      version-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'gitsubmodule'
+    cooldown:
+      default-days: 21
+    directory: '/'
+    groups:
+      version-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'mix'
+    cooldown:
+      default-days: 21
+    directory: '/'
+    groups:
+      version-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'pip'
+    cooldown:
+      default-days: 21
+    directory: '/'
+    groups:
+      version-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+    schedule:
+      interval: 'weekly'
