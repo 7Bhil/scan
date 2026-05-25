@@ -88,13 +88,17 @@ class ScanOrchestrator:
                 time.sleep(interval)
         except KeyboardInterrupt:
             self.log("🛑 Mode continu arrêté par l'utilisateur.")
+def _command_listener(self):
+    """Vérifie si une demande de scan a été envoyée via MongoDB"""
+    self.log("[*] Listener de scans distants activé.")
+    while True:
+        try:
+            if self.db:
+                self.db.send_heartbeat("scan")
 
-    def _command_listener(self):
-        """Vérifie si une demande de scan a été envoyée via MongoDB"""
-        self.log("[*] Listener de scans distants activé.")
-        while True:
-            try:
-                commands = self.db.get_pending_commands("scan")
+            commands = self.db.get_pending_commands("scan")
+# ...
+
                 for cmd in commands:
                     action = cmd.get("action")
                     cmd_id = cmd.get("_id")
