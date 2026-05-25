@@ -1,10 +1,23 @@
 import json
 import subprocess
 import os
+import sys
 from datetime import datetime
+import logging
+
+# Ajouter le chemin parent pour importer database_manager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from database_manager import MongoAtlasManager
+except ImportError:
+    MongoAtlasManager = None
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("Scan.PortScanner")
 
 def run_port_scan(target, threads=10):
-    print(f"[*] Starting port scan on {target} using Nettacker...")
+    logger.info(f"Démarrage du scan de ports sur {target}...")
+# ... (rest of the file remains similar until processing results)
     
     output_file = "temp_nettacker_results.json"
     if os.path.exists(output_file):
@@ -29,28 +42,46 @@ def run_port_scan(target, threads=10):
             
             # Convert to Mirage format
             mirage_results = []
-            for entry in raw_data:
-                mirage_results.append({
-                    "version": "1.0",
-                    "component": "scan",
-                    "timestamp": datetime.now().isoformat(),
-                    "type": "port_scan",
-                    "target": {
-                        "ip": entry.get('target', target),
-                    },
-                    "data": {
-                        "port": entry.get('port'),
-                        "service": "Unknown", # Nettacker's port_scan doesn't always give service name
-                        "status": "open",
-                        "module_name": entry.get('module_name')
-                    }
-                })
+            open_ports = []
             
+            for entry in raw_data:
+                port = entry.get('port')
+                if port:
+                    open_ports.append(port)
+                    mirage_results.append({
+                        "version": "1.0",
+                        "component": "scan",
+                        "timestamp": datetime.now().isoformat(),
+                        "type": "port_scan",
+                        "target": {"ip": target},
+                        "data": {
+                            "port": port,
+                            "service": "Unknown",
+                            "status": "open"
+                        }
+                    })
+            
+            # --- SYNCHRO CLOUD ---
+            if MongoAtlasManager and open_ports:
+                db = MongoAtlasManager()
+                if db.db is not None:
+                    # 1. Logger l'événement
+                    db.insert_event({
+                        "component": "scan",
+                        "type": "port_scan",
+                        "severity": "info",
+                        "target": {"ip": target},
+                        "message": f"Scan de ports terminé pour {target}. {len(open_ports)} ports trouvés."
+                    })
+                    # 2. Mettre à jour la machine
+                    db.add_machine_ports(target, open_ports)
+                    logger.info("Résultats du scan de ports synchronisés avec MongoDB Atlas.")
+
             final_output = f"port_scan_{target.replace('/', '_')}.json"
             with open(final_output, "w") as f:
                 json.dump(mirage_results, f, indent=4)
                 
-            print(f"[+] Port scan finished for {target}. Found {len(mirage_results)} open ports.")
+            logger.info(f"Scan de ports terminé pour {target}. {len(mirage_results)} ports ouverts trouvés.")
             return mirage_results
         else:
             print(f"[-] No results found for {target}.")

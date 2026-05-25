@@ -13,19 +13,32 @@ from port_scanner import run_port_scan
 from vulnerability_scanner import run_vuln_scan
 from resolution_engine import generate_resolutions
 
+try:
+    from database_manager import MongoAtlasManager
+except ImportError:
+    MongoAtlasManager = None
+
 class ScanOrchestrator:
     def __init__(self, silent=False):
         self.workspace_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.state = MirageState(self.workspace_root)
         self.silent = silent
+        self.db = MongoAtlasManager() if MongoAtlasManager else None
         
-    def log(self, message):
+    def log(self, message, cloud=False):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         if not self.silent:
-            timestamp = datetime.now().strftime("%H:%M:%S")
             print(f"[{timestamp}] [SCAN] {message}")
+        if cloud and self.db and self.db.db is not None:
+            self.db.insert_event({
+                "component": "scan",
+                "type": "audit_status",
+                "severity": "info",
+                "message": message
+            })
 
     def run_full_audit(self):
-        self.log("🚀 Lancement de l'audit complet du réseau...")
+        self.log("🚀 Lancement de l'audit complet du réseau...", cloud=True)
         
         # 1. Découverte
         self.log("🔍 Étape 1 : Découverte des machines actives...")
@@ -59,17 +72,50 @@ class ScanOrchestrator:
                 self.state.update_machine(ip, "findings", report['findings'])
                 self.log(f"   ✅ Analyse terminée pour {ip}. Score: {report['summary']['machine_score']}/100")
             
-        self.log("🏁 Audit Mirage terminé.")
+        self.log("🏁 Audit Mirage terminé.", cloud=True)
 
     def start_daemon(self, interval=3600):
         self.log(f"🔄 Mode 'Mise à jour continue' activé (Intervalle: {interval}s)")
         try:
+            # --- START COMMAND LISTENER IN BACKGROUND ---
+            if self.db:
+                import threading
+                threading.Thread(target=self._command_listener, daemon=True).start()
+                
             while True:
                 self.run_full_audit()
                 self.log(f"💤 Sommeil pendant {interval} secondes avant le prochain scan...")
                 time.sleep(interval)
         except KeyboardInterrupt:
             self.log("🛑 Mode continu arrêté par l'utilisateur.")
+
+    def _command_listener(self):
+        """Vérifie si une demande de scan a été envoyée via MongoDB"""
+        self.log("[*] Listener de scans distants activé.")
+        while True:
+            try:
+                commands = self.db.get_pending_commands("scan")
+                for cmd in commands:
+                    action = cmd.get("action")
+                    cmd_id = cmd.get("_id")
+                    
+                    if action == "run_full_audit":
+                        self.log("[!] Commande reçue : Lancement audit complet immédiat.")
+                        self.run_full_audit()
+                        self.db.update_command_status(cmd_id, "executed")
+                    
+                    elif action == "scan_target":
+                        target = cmd.get("target_ip")
+                        if target:
+                            self.log(f"[!] Commande reçue : Scan ciblé sur {target}")
+                            run_port_scan(target)
+                            run_vuln_scan(target)
+                            self.db.update_command_status(cmd_id, "executed")
+                            
+                time.sleep(10)
+            except Exception as e:
+                self.log(f"Erreur Scan Command Listener : {e}")
+                time.sleep(20)
 
 def main():
     parser = argparse.ArgumentParser(description="Mirage Scan Engine - Professional Network Audit Tool")

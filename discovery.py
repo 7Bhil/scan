@@ -1,16 +1,25 @@
 import json
 import socket
 import os
+import sys
 from datetime import datetime
 from scapy.all import ARP, Ether, srp
 import subprocess
 import logging
+
+# Ajouter le chemin parent pour importer database_manager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from database_manager import MongoAtlasManager
+except ImportError:
+    MongoAtlasManager = None
 
 # Configuration du logging pro
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("Scan.Discovery")
 
 def get_local_ip():
+# ... (rest of the file remains similar until run_discovery)
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('10.255.255.255', 1))
@@ -96,19 +105,41 @@ def run_discovery():
             'discovery_time': datetime.now().isoformat()
         })
 
+    # Préparation du résultat
+    timestamp = datetime.now().isoformat()
     result = {
         "version": "1.0",
         "component": "scan",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": timestamp,
         "type": "discovery",
         "network": network,
         "devices_count": len(devices),
         "devices": devices
     }
     
+    # Sauvegarde locale
     output_path = "discovery_results.json"
     with open(output_path, "w") as f:
         json.dump(result, f, indent=4)
+    
+    # --- SYNCHRO CLOUD ---
+    if MongoAtlasManager:
+        db = MongoAtlasManager()
+        if db.db is not None:
+            logger.info("Envoi des résultats vers MongoDB Atlas...")
+            # 1. Logger l'événement global
+            db.insert_event({
+                "component": "scan",
+                "type": "discovery",
+                "severity": "info",
+                "message": f"Scan réseau terminé sur {network}. {len(devices)} machines trouvées.",
+                "devices_count": len(devices)
+            })
+            
+            # 2. Mettre à jour chaque machine individuellement
+            for device in devices:
+                db.update_machine(device)
+            logger.info("Cloud synchronisé avec succès.")
     
     logger.info(f"Scan terminé : {len(devices)} machines trouvées.")
     return result

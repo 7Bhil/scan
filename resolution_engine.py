@@ -1,6 +1,20 @@
 import json
+import os
+import sys
+import logging
+
+# Ajouter le chemin parent pour importer database_manager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from database_manager import MongoAtlasManager
+except ImportError:
+    MongoAtlasManager = None
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("Scan.Resolution")
 
 RESOLUTION_GUIDES = {
+# ... (rest of the file remains similar until generate_resolutions)
     "admin_scan": {
         "title": "Interface d'administration exposée",
         "description": "Une page d'administration a été découverte publiquement.",
@@ -74,23 +88,38 @@ def generate_resolutions(scan_results_path):
         # Simple scoring logic
         total_score -= 10 # Deduct 10 points per vuln
         
+    # Déterminer l'IP cible à partir du premier résultat
+    target_ip = results[0]['target']['ip'] if results else "Unknown"
+    
     total_score = max(0, total_score)
+    status = "Safe" if total_score > 80 else "At Risk" if total_score > 50 else "Critical"
     
     output = {
         "summary": {
             "machine_score": total_score,
-            "status": "Safe" if total_score > 80 else "At Risk" if total_score > 50 else "Critical",
+            "status": status,
             "findings_count": len(enriched_results)
         },
         "findings": enriched_results
     }
     
+    # --- SYNCHRO CLOUD ---
+    if MongoAtlasManager and target_ip != "Unknown":
+        db = MongoAtlasManager()
+        if db.db is not None:
+            db.update_machine({
+                "ip": target_ip,
+                "score": total_score,
+                "status": status,
+                "findings": [f['data'] for f in enriched_results]
+            })
+            logger.info(f"Score ({total_score}/100) et résolutions envoyés sur MongoDB Atlas pour {target_ip}.")
+
     output_path = scan_results_path.replace(".json", "_resolved.json")
     with open(output_path, "w") as f:
         json.dump(output, f, indent=4)
         
-    print(f"[+] Resolutions generated. Machine Score: {total_score}/100")
-    print(f"[+] Detailed report saved to {output_path}")
+    logger.info(f"Résolutions générées. Score: {total_score}/100")
     return output
 
 if __name__ == "__main__":
