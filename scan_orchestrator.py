@@ -88,33 +88,35 @@ class ScanOrchestrator:
                 time.sleep(interval)
         except KeyboardInterrupt:
             self.log("🛑 Mode continu arrêté par l'utilisateur.")
-def _command_listener(self):
-    """Vérifie si une demande de scan a été envoyée via MongoDB"""
-    self.log("[*] Listener de scans distants activé.")
-    while True:
-        try:
-            if self.db:
-                self.db.send_heartbeat("scan")
-
-            commands = self.db.get_pending_commands("scan")
-# ...
-
-                for cmd in commands:
-                    action = cmd.get("action")
-                    cmd_id = cmd.get("_id")
-                    
-                    if action == "run_full_audit":
-                        self.log("[!] Commande reçue : Lancement audit complet immédiat.")
-                        self.run_full_audit()
-                        self.db.update_command_status(cmd_id, "executed")
-                    
-                    elif action == "scan_target":
-                        target = cmd.get("target_ip")
-                        if target:
-                            self.log(f"[!] Commande reçue : Scan ciblé sur {target}")
-                            run_port_scan(target)
-                            run_vuln_scan(target)
+    def _command_listener(self):
+        """Vérifie si une demande de scan a été envoyée via MongoDB"""
+        self.log("[*] Listener de scans distants activé.")
+        while True:
+            try:
+                if self.db:
+                    self.db.send_heartbeat("scan")
+                    commands = self.db.get_pending_commands("scan")
+                    for cmd in commands:
+                        action = cmd.get("action")
+                        cmd_id = cmd.get("_id")
+                        
+                        if action == "run_full_audit":
+                            self.log("[!] Commande reçue : Lancement audit complet immédiat.")
+                            self.run_full_audit()
                             self.db.update_command_status(cmd_id, "executed")
+                        
+                        elif action == "scan_target":
+                            target = cmd.get("target_ip")
+                            if target:
+                                self.log(f"[!] Commande reçue : Scan ciblé sur {target}")
+                                run_port_scan(target)
+                                run_vuln_scan(target)
+                                self.db.update_command_status(cmd_id, "executed")
+                            
+                time.sleep(10)
+            except Exception as e:
+                self.log(f"Erreur Scan Command Listener : {e}")
+                time.sleep(20)
                             
                 time.sleep(10)
             except Exception as e:
