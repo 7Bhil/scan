@@ -1,4 +1,4 @@
-# 🚀 Plan de Perfectionnement : Scanner de Soutenance
+#  Plan de Perfectionnement : Scanner de Soutenance
 
 Ce document détaille la stratégie pour transformer le scanner actuel en un outil de niveau professionnel pour la soutenance.
 

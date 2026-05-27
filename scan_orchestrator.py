@@ -38,10 +38,10 @@ class ScanOrchestrator:
             })
 
     def run_full_audit(self):
-        self.log("🚀 Lancement de l'audit complet du réseau...", cloud=True)
+        self.log(" Lancement de l'audit complet du réseau...", cloud=True)
         
         # 1. Découverte
-        self.log("🔍 Étape 1 : Découverte des machines actives...")
+        self.log(" Étape 1 : Découverte des machines actives...")
         discovery_results = run_discovery()
         devices = discovery_results.get("devices", [])
         
@@ -54,7 +54,7 @@ class ScanOrchestrator:
         # 2. Pour chaque machine, scanner ports et vulnérabilités
         for device in devices:
             ip = device['ip']
-            self.log(f"🛠️ Étape 2 : Analyse approfondie de {ip}...")
+            self.log(f" Étape 2 : Analyse approfondie de {ip}...")
             
             # Ports
             ports = run_port_scan(ip)
@@ -70,12 +70,12 @@ class ScanOrchestrator:
                 self.state.update_machine(ip, "score", report['summary']['machine_score'])
                 self.state.update_machine(ip, "status", report['summary']['status'])
                 self.state.update_machine(ip, "findings", report['findings'])
-                self.log(f"   ✅ Analyse terminée pour {ip}. Score: {report['summary']['machine_score']}/100")
+                self.log(f"    Analyse terminée pour {ip}. Score: {report['summary']['machine_score']}/100")
             
-        self.log("🏁 Audit Mirage terminé.", cloud=True)
+        self.log(" Audit Mirage terminé.", cloud=True)
 
     def start_daemon(self, interval=3600):
-        self.log(f"🔄 Mode 'Mise à jour continue' activé (Intervalle: {interval}s)")
+        self.log(f" Mode 'Mise à jour continue' activé (Intervalle: {interval}s)")
         try:
             # --- START COMMAND LISTENER IN BACKGROUND ---
             if self.db:
@@ -84,10 +84,10 @@ class ScanOrchestrator:
                 
             while True:
                 self.run_full_audit()
-                self.log(f"💤 Sommeil pendant {interval} secondes avant le prochain scan...")
+                self.log(f" Sommeil pendant {interval} secondes avant le prochain scan...")
                 time.sleep(interval)
         except KeyboardInterrupt:
-            self.log("🛑 Mode continu arrêté par l'utilisateur.")
+            self.log(" Mode continu arrêté par l'utilisateur.")
     def _command_listener(self):
         """Vérifie si une demande de scan a été envoyée via MongoDB"""
         self.log("[*] Listener de scans distants activé.")

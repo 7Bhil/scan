@@ -9,17 +9,17 @@ cd "$(dirname "$0")"
 if [ -d "venv" ]; then
     source venv/bin/activate
 else
-    echo "❌ Erreur : Environnement virtuel 'venv' non trouvé."
+    echo " Erreur : Environnement virtuel 'venv' non trouvé."
     exit 1
 fi
 
 # 3. Arrêter les anciennes instances pour éviter les conflits
-echo "🧹 Nettoyage des anciens processus..."
+echo " Nettoyage des anciens processus..."
 pkill -f streamlit 2>/dev/null
 pkill -f nettacker 2>/dev/null
 
 # 4. Lancer l'interface
-echo "🚀 Lancement de l'interface de sécurité..."
+echo " Lancement de l'interface de sécurité..."
 echo "--------------------------------------------------"
 echo "Lien d'accès : http://localhost:8501"
 echo "--------------------------------------------------"
